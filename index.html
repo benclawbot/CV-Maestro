@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CV Maestro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&family=Merriweather:wght@300;400;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#0f172a',
+              accent: '#3b82f6',
+              gold: '#d4af37',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'],
+              mono: ['Roboto Mono', 'monospace'],
+              classic: ['Merriweather', 'serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      @media print {
+        @page { margin: 0; size: auto; }
+        
+        body { 
+          margin: 0; 
+          padding: 0; 
+          background: white; 
+          -webkit-print-color-adjust: exact !important; 
+          print-color-adjust: exact !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+
+        /* Hide all interface elements */
+        .no-print, nav, header, aside, .sidebar-controls, .toolbar { 
+          display: none !important; 
+        }
+
+        /* Reset App layout containers to allow flow */
+        #root, .flex, .h-screen, .overflow-hidden, .overflow-y-auto {
+          display: block !important;
+          height: auto !important;
+          overflow: visible !important;
+          position: static !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        /* Target the specific resume preview to display */
+        .resume-preview-container {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            box-shadow: none !important;
+            transform: none !important; /* Critical: Remove scaling */
+            overflow: visible !important;
+        }
+
+        /* Ensure page breaks work if resume is long */
+        .break-inside-avoid {
+            page-break-inside: avoid;
+        }
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #888;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "jspdf": "https://esm.sh/jspdf@^4.1.0",
+    "mammoth": "https://esm.sh/mammoth@1.6.0",
+    "docx": "https://esm.sh/docx@8.5.0",
+    "file-saver": "https://esm.sh/file-saver@2.0.5"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-50 text-slate-900 h-screen overflow-hidden">
+    <div id="root"></div>
+  </body>
+</html>

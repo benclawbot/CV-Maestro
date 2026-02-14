@@ -1,0 +1,8 @@
+{
+  "name": "CV Maestro",
+  "description": "A high-end, AI-powered resume builder that transforms documents into polished, professional CVs using Google Gemini.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
