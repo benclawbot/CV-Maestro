@@ -3,10 +3,10 @@ import { ResumeData, TemplateConfig, INITIAL_RESUME_DATA } from './types';
 import { TEMPLATES } from './constants';
 import { ResumePreview } from './components/ResumePreview';
 import { ResumeForm } from './components/ResumeForm';
-import { parseResumeDocument, enhancePhoto, analyzePhotoAndSuggest, translateResume } from './services/geminiService';
+import { parseResumeDocument, translateResume } from './services/minimaxService';
 import { generateDocx } from './services/docxService';
 import saveAs from 'file-saver';
-import { Upload, Shuffle, Download, Eye, EyeOff, Camera, Loader2, Sparkles, Wand2, AlignLeft, AlignCenter, AlignRight, FileText } from 'lucide-react';
+import { Upload, Shuffle, Download, Eye, EyeOff, Camera, Loader2, Sparkles, AlignLeft, AlignCenter, AlignRight, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -31,8 +31,6 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isExportingDocx, setIsExportingDocx] = useState<boolean>(false);
-  const [photoSuggestions, setPhotoSuggestions] = useState<string[]>([]);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<string>('');
   
   // Combine static and custom templates
   const allTemplates = useMemo(() => [...TEMPLATES, ...customTemplates], [customTemplates]);
@@ -72,7 +70,8 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error(error);
-      alert("Failed to parse document. Please ensure it is a valid PDF or DOCX file.");
+      const message = error instanceof Error ? error.message : 'Please ensure it is a valid PDF or DOCX file.';
+      alert(`Failed to parse document: ${message}`);
     } finally {
       setIsProcessing(false);
       e.target.value = '';
@@ -101,31 +100,16 @@ const App: React.FC = () => {
       }
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       const base64 = event.target?.result as string;
       setData(prev => ({ ...prev, personalInfo: { ...prev.personalInfo, photoUrl: base64 } }));
-      
-      const suggestions = await analyzePhotoAndSuggest(base64);
-      setPhotoSuggestions(suggestions);
     };
     reader.readAsDataURL(file);
-  };
-
-  const applyPhotoEnhancement = async () => {
-    if (!data.personalInfo.photoUrl || !selectedSuggestion) return;
-    setIsProcessing(true);
-    const enhancedUrl = await enhancePhoto(data.personalInfo.photoUrl, selectedSuggestion);
-    if (enhancedUrl) {
-      setData(prev => ({ ...prev, personalInfo: { ...prev.personalInfo, photoUrl: enhancedUrl } }));
-      setPhotoSuggestions([]); 
-      setSelectedSuggestion('');
-    }
-    setIsProcessing(false);
   };
 
   // Generate a totally new random design
@@ -231,7 +215,7 @@ const App: React.FC = () => {
              <Sparkles size={20} className="text-white" />
              CV Maestro
            </h1>
-           <p className="text-xs text-neutral-400 mt-1">AI-Powered High-End Resume Builder</p>
+           <p className="text-xs text-neutral-400 mt-1">MiniMax-Powered High-End Resume Builder</p>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-8">
@@ -306,25 +290,7 @@ const App: React.FC = () => {
                        Upload Image
                        <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
                     </label>
-                    {photoSuggestions.length > 0 && (
-                       <div className="space-y-2 mt-2">
-                          <select 
-                            className="w-full text-xs p-1.5 bg-neutral-800 border border-neutral-700 text-white rounded-none focus:outline-none focus:border-white"
-                            onChange={(e) => setSelectedSuggestion(e.target.value)}
-                            value={selectedSuggestion}
-                          >
-                             <option value="">AI Enhancement...</option>
-                             {photoSuggestions.map((s, i) => <option key={i} value={s}>{s}</option>)}
-                          </select>
-                          <button 
-                            disabled={!selectedSuggestion || isProcessing}
-                            onClick={applyPhotoEnhancement}
-                            className="w-full bg-neutral-800 hover:bg-neutral-700 text-white text-[10px] uppercase font-bold py-1.5 border border-neutral-700 flex items-center justify-center gap-1 disabled:opacity-50 transition-colors"
-                          >
-                             {isProcessing ? <Loader2 size={10} className="animate-spin" /> : <Wand2 size={10} />} Apply
-                          </button>
-                       </div>
-                    )}
+                    <p className="text-[10px] leading-relaxed text-neutral-500">Photo editing is unavailable with MiniMax text models; your uploaded image is kept unchanged.</p>
                  </div>
               </div>
 
