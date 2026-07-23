@@ -70,7 +70,8 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error(error);
-      alert("Failed to parse document. Please ensure it is a valid PDF or DOCX file.");
+      const message = error instanceof Error ? error.message : 'Please ensure it is a valid PDF or DOCX file.';
+      alert(`Failed to parse document: ${message}`);
     } finally {
       setIsProcessing(false);
       e.target.value = '';
