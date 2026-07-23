@@ -1,7 +1,7 @@
 import React from 'react';
 import { ResumeData } from '../types';
 import { Plus, Trash2, Wand2, ChevronDown, ChevronUp, GripVertical, Settings2 } from 'lucide-react';
-import { rewriteContent, generateSummary } from '../services/geminiService';
+import { rewriteContent, generateSummary } from '../services/minimaxService';
 
 interface ResumeFormProps {
   data: ResumeData;
