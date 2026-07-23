@@ -4,14 +4,20 @@ import mammoth from 'mammoth/mammoth.browser.js';
 import { ResumeData } from '../types';
 
 const MODEL = import.meta.env.VITE_MINIMAX_MODEL || 'MiniMax-M2.7';
-const API_PATH = '/minimax/v1/chat/completions';
+// MiniMax's native endpoint supports the larger completion budget required for
+// structured resumes. The OpenAI-compatible endpoint caps output at 2,048
+// tokens, which can truncate otherwise valid CV JSON after model reasoning.
+const API_PATH = '/minimax/v1/text/chatcompletion_v2';
 
 // Vite must serve the PDF.js worker as an asset. Without this explicit URL,
 // PDF.js attempts to infer a worker path at runtime and document imports fail.
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type ChatResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{
+    finish_reason?: string;
+    message?: { content?: string; reasoning_content?: string };
+  }>;
   error?: { message?: string };
   base_resp?: { status_msg?: string };
 };
@@ -69,14 +75,19 @@ const requestCompletion = async (system: string, user: string): Promise<string> 
         { role: 'user', content: user },
       ],
       temperature: 0.4,
-      max_completion_tokens: 2048,
+      max_completion_tokens: 8192,
     }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as ChatResponse;
-  const message = payload.choices?.[0]?.message?.content;
+  const choice = payload.choices?.[0];
+  const message = choice?.message?.content;
   if (!response.ok || !message) {
     throw new Error(payload.error?.message || payload.base_resp?.status_msg || `MiniMax request failed (${response.status}).`);
+  }
+
+  if (choice?.finish_reason === 'length') {
+    throw new Error('MiniMax reached its response limit before completing the resume.');
   }
 
   return stripThinking(message);
@@ -95,11 +106,21 @@ export const parseResumeDocument = async (file: File): Promise<Partial<ResumeDat
   const resumeText = await getResumeText(file);
   if (!resumeText.trim()) throw new Error('No readable text was found in this document.');
 
-  const text = await requestCompletion(
-    `You are an expert resume parser. Extract only information present in the supplied resume. Return valid JSON only, matching this schema exactly: ${resumeSchema}. Leave missing scalar fields empty and missing lists empty. Keep the response compact: use at most two concise bullets per experience entry, no more than 160 characters per bullet, and omit low-value details rather than exceeding the response limit.`,
-    `Resume content:\n${resumeText}`,
-  );
-  const parsed = JSON.parse(cleanJson(text)) as Record<string, unknown>;
+  const userPrompt = `Resume content:\n${resumeText}`;
+  const standardPrompt = `You are an expert resume parser. Extract only information present in the supplied resume. Return valid JSON only, matching this schema exactly: ${resumeSchema}. Leave missing scalar fields empty and missing lists empty. Keep the response compact: use at most two concise bullets per experience entry, no more than 160 characters per bullet, and omit low-value details rather than exceeding the response limit.`;
+  const retryPrompt = `You are an expert resume parser. The previous structured response was too long or incomplete. Return one complete, valid JSON object only, matching this schema exactly: ${resumeSchema}. Preserve every role and education entry, but use at most one bullet per experience, limit summaries to 280 characters, and include at most two items per custom section. Never leave a JSON string or object unfinished.`;
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(cleanJson(await requestCompletion(standardPrompt, userPrompt))) as Record<string, unknown>;
+  } catch (firstError) {
+    try {
+      parsed = JSON.parse(cleanJson(await requestCompletion(retryPrompt, userPrompt))) as Record<string, unknown>;
+    } catch (retryError) {
+      const message = retryError instanceof Error ? retryError.message : 'Invalid JSON response';
+      throw new Error(`MiniMax could not return a complete structured resume: ${message}`, { cause: firstError });
+    }
+  }
   const timestamp = Date.now();
 
   for (const key of ['experience', 'education', 'customSections'] as const) {
