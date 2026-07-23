@@ -1,27 +1,42 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # CV Maestro
 
-CV Maestro is a local, MiniMax-powered resume builder. Its AI features parse
-text from PDF/DOCX files, improve resume writing, and translate resumes.
+CV Maestro is a MiniMax-powered resume builder for turning existing CVs into
+polished, editable, export-ready resumes.
+
+> **Private live site:** [Open CV Maestro](https://cv-maestro-minimax.benclawbot.chatgpt.site)
+
+![CV Maestro interface](docs/screenshots/cv-maestro.png)
+
+## Features
+
+- Import text-based PDF and DOCX resumes directly in the browser.
+- Extract structured personal details, experience, education, skills, and custom sections with MiniMax M2.7.
+- Rewrite summaries and experience bullets, or translate a resume between English and French.
+- Choose from high-end templates, tune layout and headshot settings, and export PDF or ATS-compatible DOCX files.
+- Keep the MiniMax API key server-side: the browser only calls the app's same-origin proxy.
 
 ## Run Locally
 
 **Prerequisites:** Node.js 20+ and a MiniMax API key.
 
-
 1. Install dependencies: `npm install`
-2. Copy `.env.example` to `.env.local` and set `MINIMAX_API_KEY`.
-3. Start the local app: `npm run dev`
-4. Open the URL shown by Vite (normally http://localhost:3000).
+2. Copy `.env.example` to `.dev.vars` and set `MINIMAX_API_KEY`.
+3. Start the app: `npm run dev`
+4. Open `http://localhost:3000`.
 
-The local server and deployed Site proxy calls to MiniMax, so the API key remains
-out of the browser bundle. `VITE_MINIMAX_MODEL` defaults to the currently
-documented `MiniMax-M2.7`. To use MiniMax M3, set it to `MiniMax-M3` after M3
-is enabled for your MiniMax account.
+`MiniMax-M2.7` is the default model. The local development server and deployed
+Site both proxy MiniMax calls, so the API key is never bundled into client-side
+JavaScript.
 
-MiniMax's text models currently do not accept image or document inputs. CV
-Maestro therefore extracts PDF/DOCX text locally and keeps uploaded headshots
-unchanged; the writing, parsing, and translation features use MiniMax.
+## Import support
+
+CV Maestro extracts text from PDF and DOCX files locally before sending only
+that text to MiniMax for structuring. Scanned PDFs without selectable text are
+not supported yet. Headshots are kept unchanged because MiniMax's text models
+do not currently provide image editing in this workflow.
+
+## Deployment
+
+The project is configured for a private [ChatGPT Sites deployment](https://cv-maestro-minimax.benclawbot.chatgpt.site).
+Set `MINIMAX_API_KEY` as a secret in the deployment runtime configuration; do
+not add it to source control.
