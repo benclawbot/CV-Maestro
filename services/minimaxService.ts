@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import mammoth from 'mammoth/mammoth.browser.js';
-import { ResumeData } from '../types';
+import { ResumeData, ResumeDetailLevel } from '../types';
 
 const MODEL = import.meta.env.VITE_MINIMAX_MODEL || 'MiniMax-M2.7';
 const API_PATH = '/minimax/v1/text/chatcompletion_v2';
@@ -55,7 +55,7 @@ const getResumeText = async (file: File): Promise<string> => {
   return file.text();
 };
 
-const requestCompletion = async (system: string, user: string): Promise<string> => {
+const requestCompletion = async (system: string, user: string, maxCompletionTokens = 8192): Promise<string> => {
   const response = await fetch(API_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -66,7 +66,7 @@ const requestCompletion = async (system: string, user: string): Promise<string> 
         { role: 'user', content: user },
       ],
       temperature: 0.4,
-      max_completion_tokens: 8192,
+      max_completion_tokens: maxCompletionTokens,
     }),
   });
 
@@ -91,20 +91,40 @@ const resumeSchema = `{
   "customSections": [{ "id": "string", "title": "string", "items": ["string"] }]
 }`;
 
-export const parseResumeDocument = async (file: File): Promise<Partial<ResumeData> | null> => {
+const detailInstructions: Record<ResumeDetailLevel, { standard: string; retry: string; maxCompletionTokens: number }> = {
+  'one-page': {
+    standard: 'Create a true one-page synthesis. Preserve every role and education entry, but keep at most one high-value bullet per experience, limit the summary to 220 characters, and include at most two items per custom section. Prefer measurable achievements and information relevant to the candidate’s current positioning.',
+    retry: 'Return a shorter one-page version while still preserving every role, its location when present, and every education entry. Use at most one brief bullet per experience and one item per custom section.',
+    maxCompletionTokens: 8192,
+  },
+  medium: {
+    standard: 'Create a balanced synthesis. Preserve every role, education entry, certification, language, and distinct skill present in the source. Keep up to three concise bullets per experience and up to four items per custom section. Remove only repetition or clearly low-value wording; do not remove whole roles or substantive achievements.',
+    retry: 'Return a more compact but complete synthesis. Preserve every role, education entry, certification, language, and distinct skill. Shorten wording before removing information, and keep up to two bullets per experience.',
+    maxCompletionTokens: 12288,
+  },
+  full: {
+    standard: 'Preserve the source resume in full detail. Extract every role, responsibility, achievement, project, education entry, certification, publication, language, skill, and other substantive item present. Keep all distinct bullets and facts; do not summarize, merge, rank, or omit content merely to shorten the resume. Wording may be cleaned only when its meaning and level of detail remain unchanged.',
+    retry: 'Return a complete full-detail resume. Preserve every distinct source fact and all entries. Shorten wording only if needed to complete valid JSON; never remove roles, bullets, education, certifications, publications, skills, languages, or custom-section items.',
+    maxCompletionTokens: 24576,
+  },
+};
+
+export const parseResumeDocument = async (file: File, detailLevel: ResumeDetailLevel = 'medium'): Promise<Partial<ResumeData> | null> => {
   const resumeText = await getResumeText(file);
   if (!resumeText.trim()) throw new Error('No readable text was found in this document.');
 
+  const instructions = detailInstructions[detailLevel];
   const userPrompt = `Resume content:\n${resumeText}`;
-  const standardPrompt = `You are an expert resume parser. Extract only information present in the supplied resume. Return valid JSON only, matching this schema exactly: ${resumeSchema}. Leave missing scalar fields empty and missing lists empty. For every experience, extract its city, region, or country into the experience location field when present; this is especially important for roles outside Switzerland or in German-speaking Switzerland. Keep the response compact: use at most two concise bullets per experience entry, no more than 160 characters per bullet, and omit low-value details rather than exceeding the response limit.`;
-  const retryPrompt = `You are an expert resume parser. The previous structured response was too long or incomplete. Return one complete, valid JSON object only, matching this schema exactly: ${resumeSchema}. Preserve every role, its location when present, and every education entry, but use at most one bullet per experience, limit summaries to 280 characters, and include at most two items per custom section. Never leave a JSON string or object unfinished.`;
+  const sharedPrompt = `You are an expert resume parser. Extract only information present in the supplied resume. Return valid JSON only, matching this schema exactly: ${resumeSchema}. Leave missing scalar fields empty and missing lists empty. For every experience, extract its city, region, or country into the experience location field when present; this is especially important for roles outside Switzerland or in German-speaking Switzerland.`;
+  const standardPrompt = `${sharedPrompt} ${instructions.standard}`;
+  const retryPrompt = `${sharedPrompt} The previous structured response was too long or incomplete. ${instructions.retry} Never leave a JSON string or object unfinished.`;
 
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(cleanJson(await requestCompletion(standardPrompt, userPrompt))) as Record<string, unknown>;
+    parsed = JSON.parse(cleanJson(await requestCompletion(standardPrompt, userPrompt, instructions.maxCompletionTokens))) as Record<string, unknown>;
   } catch (firstError) {
     try {
-      parsed = JSON.parse(cleanJson(await requestCompletion(retryPrompt, userPrompt))) as Record<string, unknown>;
+      parsed = JSON.parse(cleanJson(await requestCompletion(retryPrompt, userPrompt, instructions.maxCompletionTokens))) as Record<string, unknown>;
     } catch (retryError) {
       const message = retryError instanceof Error ? retryError.message : 'Invalid JSON response';
       throw new Error(`MiniMax could not return a complete structured resume: ${message}`, { cause: firstError });
