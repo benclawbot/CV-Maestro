@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ResumeData, TemplateConfig, INITIAL_RESUME_DATA } from './types';
+import { ResumeData, ResumeDetailLevel, TemplateConfig, INITIAL_RESUME_DATA } from './types';
 import { TEMPLATES } from './constants';
 import { ResumePreview } from './components/ResumePreview';
 import { ResumeForm } from './components/ResumeForm';
@@ -73,6 +73,7 @@ const App: React.FC = () => {
   const [photoSettings, setPhotoSettings] = useState<{ size: 'small' | 'medium' | 'large'; align: 'left' | 'center' | 'right' }>({ size: 'medium', align: 'center' });
   const [language, setLanguage] = useState<'en' | 'fr'>('en');
   const [skillSettings, setSkillSettings] = useState<{ showLevel: boolean; style: 'bar' | 'dots' | 'text' }>({ showLevel: true, style: 'bar' });
+  const [detailLevel, setDetailLevel] = useState<ResumeDetailLevel>('medium');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -85,7 +86,7 @@ const App: React.FC = () => {
     if (!file) return;
     setIsProcessing(true);
     try {
-      const parsedData = await parseResumeDocument(file);
+      const parsedData = await parseResumeDocument(file, detailLevel);
       if (parsedData) {
         setData((previous) => {
           let skills = parsedData.skills || previous.skills;
@@ -257,6 +258,37 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-8">
           <section className="bg-neutral-800 p-4 border border-neutral-700">
             <h3 className="text-xs font-bold text-neutral-300 mb-3 uppercase tracking-wider flex items-center gap-2"><Upload size={12} /> Import Source</h3>
+            <fieldset className="mb-3">
+              <legend className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Detail retained</legend>
+              <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Resume detail retained">
+                {([
+                  { value: 'one-page', label: '1 pager' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'full', label: 'Full detail' },
+                ] as const).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={detailLevel === option.value}
+                    onClick={() => setDetailLevel(option.value)}
+                    disabled={isProcessing}
+                    className={`min-h-10 px-1 py-2 text-[9px] leading-tight font-bold uppercase transition-colors ${
+                      detailLevel === option.value
+                        ? 'bg-white text-black'
+                        : 'bg-neutral-900 text-neutral-500 border border-neutral-700 hover:text-white'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-neutral-500">
+                {detailLevel === 'one-page' && 'Prioritizes the strongest content for a one-page CV.'}
+                {detailLevel === 'medium' && 'Balances completeness with concise, readable wording.'}
+                {detailLevel === 'full' && 'Keeps every distinct fact and entry from the source.'}
+              </p>
+            </fieldset>
             <label className="flex items-center justify-center w-full py-3 bg-white cursor-pointer hover:bg-neutral-200 transition-colors text-xs font-bold text-black uppercase tracking-wide">
               {isProcessing ? <span className="flex items-center gap-2"><Loader2 className="animate-spin" size={14} /> Analyzing...</span> : <span>Upload PDF / Word</span>}
               <input type="file" className="hidden" accept=".pdf,.docx,.doc" onChange={handleFileUpload} disabled={isProcessing} />
