@@ -8,14 +8,15 @@ export interface ResumeData {
     summary: string;
     linkedin?: string;
     website?: string;
-    photoUrl?: string; // Base64 or URL
+    photoUrl?: string;
   };
   experience: Array<{
     id: string;
     role: string;
     company: string;
+    location?: string;
     duration: string;
-    description: string[]; // Bullet points
+    description: string[];
   }>;
   education: Array<{
     id: string;
@@ -25,7 +26,7 @@ export interface ResumeData {
   }>;
   skills: Array<{
     name: string;
-    level: number; // 1-5
+    level: number;
   }>;
   languages?: string[];
   interests?: string[];
@@ -62,6 +63,7 @@ export const INITIAL_RESUME_DATA: ResumeData = {
       id: '1',
       role: "Lead Product Designer",
       company: "InnovateTech",
+      location: "San Francisco, CA",
       duration: "2020 - Present",
       description: [
         "Spearheaded the redesign of the core SaaS platform, increasing user retention by 25%.",
@@ -73,6 +75,7 @@ export const INITIAL_RESUME_DATA: ResumeData = {
       id: '2',
       role: "UI/UX Designer",
       company: "Creative Pulse Agency",
+      location: "New York, NY",
       duration: "2017 - 2020",
       description: [
         "Delivered award-winning web designs for Fortune 500 clients including Nike and Tesla.",
