@@ -118,6 +118,14 @@ export const ResumePreview: React.FC<ResumePreviewProps> = ({ data, template, sh
   const imgClass = `${sizeClasses[photoSettings.size]} object-cover rounded-full border-4 border-white shadow-lg`;
   const photoContainerClass = `${isCompact ? 'mb-5' : 'mb-8'} flex ${alignClasses[photoSettings.align]}`;
   const fontClass = { sans: 'font-sans', serif: 'font-serif', mono: 'font-mono', classic: 'font-classic' }[template.fontFamily];
+  const mainContentStyle: React.CSSProperties | undefined = hasSidebar
+    ? {
+        paddingTop: isCompact ? '2rem' : '2.5rem',
+        paddingBottom: isCompact ? '2rem' : '2.5rem',
+        paddingLeft: template.layout === 'sidebar-left' ? `calc(33.333% + ${isCompact ? '2rem' : '2.5rem'})` : isCompact ? '2rem' : '2.5rem',
+        paddingRight: template.layout === 'sidebar-right' ? `calc(33.333% + ${isCompact ? '2rem' : '2.5rem'})` : isCompact ? '2rem' : '2.5rem',
+      }
+    : undefined;
 
   const SectionTitle = ({ title, first = false }: { title: string; first?: boolean }) => {
     const classes = {
@@ -230,7 +238,10 @@ export const ResumePreview: React.FC<ResumePreviewProps> = ({ data, template, sh
   };
 
   const renderMainContent = () => (
-    <main className={`resume-main w-full box-border ${isCompact ? 'p-8' : 'p-10'}`}>
+    <main
+      className={`resume-main w-full box-border ${hasSidebar ? '' : isCompact ? 'p-8' : 'p-10'}`}
+      style={mainContentStyle}
+    >
       {hasSidebar && (
         <div className={`${isCompact ? 'mb-7 pb-6' : 'mb-10 pb-8'} border-b border-gray-100 break-inside-avoid`} data-pdf-break-after="true">
           <h1 className={`text-5xl font-bold mb-3 ${theme.text} leading-tight`}>{personalInfo.fullName}</h1>
