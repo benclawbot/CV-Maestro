@@ -4,13 +4,8 @@ import mammoth from 'mammoth/mammoth.browser.js';
 import { ResumeData } from '../types';
 
 const MODEL = import.meta.env.VITE_MINIMAX_MODEL || 'MiniMax-M2.7';
-// MiniMax's native endpoint supports the larger completion budget required for
-// structured resumes. The OpenAI-compatible endpoint caps output at 2,048
-// tokens, which can truncate otherwise valid CV JSON after model reasoning.
 const API_PATH = '/minimax/v1/text/chatcompletion_v2';
 
-// Vite must serve the PDF.js worker as an asset. Without this explicit URL,
-// PDF.js attempts to infer a worker path at runtime and document imports fail.
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type ChatResponse = {
@@ -23,9 +18,7 @@ type ChatResponse = {
 };
 
 const stripThinking = (text: string) => text.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, '').trim();
-
-const cleanJson = (text: string) =>
-  stripThinking(text).replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+const cleanJson = (text: string) => stripThinking(text).replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
 
 const getResumeText = async (file: File): Promise<string> => {
   const fileName = file.name.toLowerCase();
@@ -36,9 +29,7 @@ const getResumeText = async (file: File): Promise<string> => {
         Array.from({ length: document.numPages }, async (_, index) => {
           const page = await document.getPage(index + 1);
           const content = await page.getTextContent();
-          return content.items
-            .map((item) => ('str' in item ? item.str : ''))
-            .join(' ');
+          return content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
         }),
       );
       const text = pages.join('\n').trim();
@@ -85,17 +76,15 @@ const requestCompletion = async (system: string, user: string): Promise<string> 
   if (!response.ok || !message) {
     throw new Error(payload.error?.message || payload.base_resp?.status_msg || `MiniMax request failed (${response.status}).`);
   }
-
   if (choice?.finish_reason === 'length') {
     throw new Error('MiniMax reached its response limit before completing the resume.');
   }
-
   return stripThinking(message);
 };
 
 const resumeSchema = `{
   "personalInfo": { "fullName": "string", "jobTitle": "string", "email": "string", "phone": "string", "location": "string", "summary": "string", "linkedin": "string", "website": "string" },
-  "experience": [{ "id": "string", "role": "string", "company": "string", "duration": "string", "description": ["string"] }],
+  "experience": [{ "id": "string", "role": "string", "company": "string", "location": "string", "duration": "string", "description": ["string"] }],
   "education": [{ "id": "string", "degree": "string", "school": "string", "year": "string" }],
   "skills": ["string"],
   "languages": ["string"],
@@ -107,8 +96,8 @@ export const parseResumeDocument = async (file: File): Promise<Partial<ResumeDat
   if (!resumeText.trim()) throw new Error('No readable text was found in this document.');
 
   const userPrompt = `Resume content:\n${resumeText}`;
-  const standardPrompt = `You are an expert resume parser. Extract only information present in the supplied resume. Return valid JSON only, matching this schema exactly: ${resumeSchema}. Leave missing scalar fields empty and missing lists empty. Keep the response compact: use at most two concise bullets per experience entry, no more than 160 characters per bullet, and omit low-value details rather than exceeding the response limit.`;
-  const retryPrompt = `You are an expert resume parser. The previous structured response was too long or incomplete. Return one complete, valid JSON object only, matching this schema exactly: ${resumeSchema}. Preserve every role and education entry, but use at most one bullet per experience, limit summaries to 280 characters, and include at most two items per custom section. Never leave a JSON string or object unfinished.`;
+  const standardPrompt = `You are an expert resume parser. Extract only information present in the supplied resume. Return valid JSON only, matching this schema exactly: ${resumeSchema}. Leave missing scalar fields empty and missing lists empty. For every experience, extract its city, region, or country into the experience location field when present; this is especially important for roles outside Switzerland or in German-speaking Switzerland. Keep the response compact: use at most two concise bullets per experience entry, no more than 160 characters per bullet, and omit low-value details rather than exceeding the response limit.`;
+  const retryPrompt = `You are an expert resume parser. The previous structured response was too long or incomplete. Return one complete, valid JSON object only, matching this schema exactly: ${resumeSchema}. Preserve every role, its location when present, and every education entry, but use at most one bullet per experience, limit summaries to 280 characters, and include at most two items per custom section. Never leave a JSON string or object unfinished.`;
 
   let parsed: Record<string, unknown>;
   try {
@@ -121,14 +110,16 @@ export const parseResumeDocument = async (file: File): Promise<Partial<ResumeDat
       throw new Error(`MiniMax could not return a complete structured resume: ${message}`, { cause: firstError });
     }
   }
-  const timestamp = Date.now();
 
+  const timestamp = Date.now();
   for (const key of ['experience', 'education', 'customSections'] as const) {
     if (Array.isArray(parsed[key])) {
       parsed[key] = parsed[key].map((item, index) => ({ ...(item as object), id: `${key}-${timestamp}-${index}` }));
     }
   }
-
+  if (Array.isArray(parsed.experience)) {
+    parsed.experience = parsed.experience.map((item) => ({ location: '', ...(item as object) }));
+  }
   return parsed as Partial<ResumeData>;
 };
 
@@ -146,7 +137,7 @@ export const generateSummary = async (currentText: string, jobTitle: string): Pr
 
 export const translateResume = async (data: ResumeData, targetLanguage: 'English' | 'French'): Promise<ResumeData> => {
   const text = await requestCompletion(
-    `You are a professional translator. Translate the supplied resume JSON into ${targetLanguage}. Return valid JSON only. Maintain the exact structure and IDs. Translate content values but not company names, email addresses, or URLs.`,
+    `You are a professional translator. Translate the supplied resume JSON into ${targetLanguage}. Return valid JSON only. Maintain the exact structure and IDs. Translate content values but not company names, locations, email addresses, or URLs.`,
     JSON.stringify(data),
   );
   return JSON.parse(cleanJson(text)) as ResumeData;
