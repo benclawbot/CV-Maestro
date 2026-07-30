@@ -37,6 +37,8 @@ export interface ResumeData {
   }>;
 }
 
+export type ResumeDetailLevel = 'one-page' | 'medium' | 'full';
+
 export interface TemplateConfig {
   id: string;
   name: string;
